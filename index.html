@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Gemini Assistant</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+   </head>
+
+<body>
+    <div id="app">
+        <div id="header">
+            <h1> Gemini API Session Aware Coding Assistant</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div id="token-info" class="token-info">
+                    Input: <span id="input-tokens">0</span> |
+                    Output: <span id="output-tokens">0</span> |
+                    Total: <span id="total-tokens">0</span>
+                </div>
+                <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+            </div>
+        </div>
+
+        <div id="status-bar">
+            <div id="session-status">Initializing...</div>
+            <div id="file-status">No files loaded</div>
+        </div>
+        <div id="input-area">
+            <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
+            <button id="send-button" onclick="sendMessageEnhanced()">Send</button>
+        </div>
+
+        <div id="chat-container">
+            <div class="typing-indicator" id="typing-indicator">
+                <div>Gemini is thinking...</div>
+            </div>
+        </div>
+
+        <div id="controls">
+            <div id="file-controls">
+                <button onclick="showFileUploadModal()">📁 Upload Files (Paths)</button>
+                <button onclick="showQuickUploadModal()">🖱️ Quick Upload (Picker)</button>
+                <button onclick="uploadFromURL()">🔗 Upload PDF from URL</button>
+                <button onclick="listFiles()">📋 List Files</button>
+                <button onclick="clearFiles()">🗑️ Clear Files</button>
+                <button onclick="clearChat()">🧹 Clear Chat</button>
+                <button onclick="exportChat()">💾 Export Chat</button>
+                <button onclick="showSessionModal()">💾 Sessions</button>
+                <button onclick="showReuploadModal()">🔄 Re-upload Files</button>
+                <button onclick="showSettingsModal()">⚙️ Settings</button>
+            </div>
+
+           
+        </div>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div id="fileModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeFileModal()">&times;</span>
+            <h3>Upload Files</h3>
+            <p>Select files to upload:</p>
+    
+            <!-- File picker input -->
+            <input type="file" id="file-picker" multiple accept=".py,.txt,.md,.html,.xml,.json,.yaml,.yml,.csv,.pdf"
+                style="width: 100%; padding: 10px; margin: 10px 0; border: 2px dashed #4285f4; border-radius: 5px; background: #f8f9ff; cursor: pointer;">
+    
+            <!-- Selected files display -->
+            <div id="selected-files"
+                style="margin: 10px 0; max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: #fafafa;">
+                <p style="color: #666; font-style: italic;">No files selected</p>
+            </div>
+    
+            <div style="text-align: right; margin-top: 15px;">
+                <button onclick="closeFileModal()"
+                    style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 5px; cursor: pointer;">Cancel</button>
+                <button onclick="uploadSelectedFiles()" id="upload-button" disabled
+                    style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer;">Upload
+                    Files</button>
+            </div>
+        </div>
+    </div>
+    <!-- Quick Upload Modal -->
+    <div id="quickUploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeQuickUploadModal()">&times;</span>
+            <h3>Quick Upload (File Picker)</h3>
+            <p>Select files for quick upload (no re-upload capability):</p>
+    
+            <!-- File picker input -->
+            <input type="file" id="quick-file-picker" multiple accept=".py,.txt,.md,.html,.xml,.json,.yaml,.yml,.csv,.pdf"
+                style="width: 100%; padding: 10px; margin: 10px 0; border: 2px dashed #4285f4; border-radius: 5px; background: #f8f9ff; cursor: pointer;">
+    
+            <!-- Selected files display -->
+            <div id="quick-selected-files"
+                style="margin: 10px 0; max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: #fafafa;">
+                <p style="color: #666; font-style: italic;">No files selected</p>
+            </div>
+    
+            <div
+                style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; border-radius: 4px; margin: 10px 0; font-size: 12px; color: #856404;">
+                ⚠️ Note: Files uploaded this way cannot be re-uploaded from saved sessions. Use "Upload Files (Paths)" for
+                full session management.
+            </div>
+    
+            <div style="text-align: right; margin-top: 15px;">
+                <button onclick="closeQuickUploadModal()"
+                    style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 5px; cursor: pointer;">Cancel</button>
+                <button onclick="uploadQuickFiles()" id="quick-upload-button" disabled
+                    style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer;">Quick
+                    Upload</button>
+            </div>
+        </div>
+    </div>
+        <!-- Session Management Modal -->
+        <div id="sessionModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeSessionModal()">&times;</span>
+                <h3>Session Management</h3>
+
+                <div style="margin-bottom: 20px;">
+                    <h4>Save Current Session</h4>
+                    <input type="text" id="session-name" placeholder="Enter session name..."
+                        style="width: 70%; padding: 8px; margin-right: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <button onclick="saveCurrentSession()"
+                        style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        💾 Save
+                    </button>
+                </div>
+
+                <div>
+                    <h4>Load Existing Session</h4>
+                    <div id="sessions-list"
+                        style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                        Loading sessions...
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal">
+            <div class="modal-content" style="max-width: 600px;">
+                <span class="close" onclick="closeSettingsModal()">&times;</span>
+                <h3>Session Settings</h3>
+        
+                <div style="display: grid; gap: 20px;">
+                    <!-- Model Selection -->
+                    <div>
+                        <h4>Model Selection</h4>
+                        <select id="model-select"
+                            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="gemini-1.5-pro">gemini-1.5-pro (default)</option>
+                            <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                            <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
+                        </select>
+                    </div>
+        
+                    <!-- Token Settings -->
+                    <div>
+                        <h4>Token Configuration</h4>
+                        <label style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <input type="checkbox" id="use-dynamic-tokens" style="margin-right: 8px;">
+                            Use dynamic token limit
+                        </label>
+        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div>
+                                <label>Max Total Tokens:</label>
+                                <input type="number" id="max-total-tokens" value="1024" min="128" max="8192"
+                                    style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div>
+                                <label>Hard Cap (Output):</label>
+                                <input type="number" id="hard-cap" value="512" min="64" max="4096"
+                                    style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                    </div>
+        
+                    <!-- Output Settings -->
+                    <div>
+                        <h4>Output Settings</h4>
+                        <label style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <input type="checkbox" id="truncate-output" style="margin-right: 8px;">
+                            Truncate output
+                        </label>
+        
+                        <div>
+                            <label>Truncate at characters:</label>
+                            <input type="number" id="truncate-chars" value="1000" min="100" max="10000"
+                                style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+        
+                    <!-- Additional Settings -->
+                    <div>
+                        <h4>Additional Options</h4>
+                        <label style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <input type="checkbox" id="add-short-hint" checked style="margin-right: 8px;">
+                            Add short-answer hint
+                        </label>
+        
+                        <label style="display: flex; align-items: center;">
+                            <input type="checkbox" id="enable-streaming" checked style="margin-right: 8px;">
+                            Enable streaming output
+                        </label>
+                    </div>
+                </div>
+        
+                <div style="text-align: right; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
+                    <button onclick="closeSettingsModal()"
+                        style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 5px; cursor: pointer;">
+                        Cancel
+                    </button>
+                    <button onclick="applySettings()"
+                        style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        Apply Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Re-upload Files Modal -->
+        <div id="reuploadModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeReuploadModal()">&times;</span>
+                <h3>Re-upload Session Files</h3>
+                <p>Select files from this session to re-upload:</p>
+        
+                <div id="session-files-list"
+                    style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                    Loading files...
+                </div>
+        
+                <div style="text-align: right; margin-top: 15px;">
+                    <button onclick="closeReuploadModal()"
+                        style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 5px; cursor: pointer;">
+                        Cancel
+                    </button>
+                    <button onclick="reuploadSelectedFiles()"
+                        style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        🔄 Re-upload Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+    <script src="enhanced_webui_v2.js"></script>
+
+</body>
+
+</html>
